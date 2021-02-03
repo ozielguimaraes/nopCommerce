@@ -77,37 +77,41 @@ namespace Nop.Data
             if (!reloadSettings && Singleton<DataSettings>.Instance != null)
                 return Singleton<DataSettings>.Instance;
 
-            fileProvider ??= CommonHelper.DefaultFileProvider;
-            filePath ??= fileProvider.MapPath(NopDataSettingsDefaults.FilePath);
-
-            //check whether file exists
-            if (!fileProvider.FileExists(filePath))
+            var connectionString = Environment.GetEnvironmentVariable(NopDataSettingsDefaults.EnvironmentVariableName);
+            if (connectionString == null)
             {
-                //if not, try to parse the file that was used in previous nopCommerce versions
-                filePath = fileProvider.MapPath(NopDataSettingsDefaults.ObsoleteFilePath);
+                fileProvider ??= CommonHelper.DefaultFileProvider;
+                filePath ??= fileProvider.MapPath(NopDataSettingsDefaults.FilePath);
+
+                //check whether file exists
                 if (!fileProvider.FileExists(filePath))
+                {
+                    //if not, try to parse the file that was used in previous nopCommerce versions
+                    filePath = fileProvider.MapPath(NopDataSettingsDefaults.ObsoleteFilePath);
+                    if (!fileProvider.FileExists(filePath))
+                        return new DataSettings();
+
+                    //get data settings from the old txt file
+                    var dataSettings =
+                        LoadDataSettingsFromOldFile(await fileProvider.ReadAllTextAsync(filePath, Encoding.UTF8));
+
+                    //save data settings to the new file
+                    await SaveSettingsAsync(dataSettings, fileProvider);
+
+                    //and delete the old one
+                    fileProvider.DeleteFile(filePath);
+
+                    Singleton<DataSettings>.Instance = dataSettings;
+                    return Singleton<DataSettings>.Instance;
+                }
+
+                connectionString = await fileProvider.ReadAllTextAsync(filePath, Encoding.UTF8);
+                if (string.IsNullOrEmpty(connectionString))
                     return new DataSettings();
-
-                //get data settings from the old txt file
-                var dataSettings =
-                    LoadDataSettingsFromOldFile(await fileProvider.ReadAllTextAsync(filePath, Encoding.UTF8));
-
-                //save data settings to the new file
-                await SaveSettingsAsync(dataSettings, fileProvider);
-
-                //and delete the old one
-                fileProvider.DeleteFile(filePath);
-
-                Singleton<DataSettings>.Instance = dataSettings;
-                return Singleton<DataSettings>.Instance;
             }
 
-            var text = await fileProvider.ReadAllTextAsync(filePath, Encoding.UTF8);
-            if (string.IsNullOrEmpty(text))
-                return new DataSettings();
-
             //get data settings from the JSON file
-            Singleton<DataSettings>.Instance = JsonConvert.DeserializeObject<DataSettings>(text);
+            Singleton<DataSettings>.Instance = JsonConvert.DeserializeObject<DataSettings>(connectionString);
 
             return Singleton<DataSettings>.Instance;
         }
@@ -124,36 +128,40 @@ namespace Nop.Data
             if (!reloadSettings && Singleton<DataSettings>.Instance != null)
                 return Singleton<DataSettings>.Instance;
 
-            fileProvider ??= CommonHelper.DefaultFileProvider;
-            filePath ??= fileProvider.MapPath(NopDataSettingsDefaults.FilePath);
-
-            //check whether file exists
-            if (!fileProvider.FileExists(filePath))
+            var connectionString = Environment.GetEnvironmentVariable(NopDataSettingsDefaults.EnvironmentVariableName);
+            if (connectionString == null)
             {
-                //if not, try to parse the file that was used in previous nopCommerce versions
-                filePath = fileProvider.MapPath(NopDataSettingsDefaults.ObsoleteFilePath);
+                fileProvider ??= CommonHelper.DefaultFileProvider;
+                filePath ??= fileProvider.MapPath(NopDataSettingsDefaults.FilePath);
+
+                //check whether file exists
                 if (!fileProvider.FileExists(filePath))
+                {
+                    //if not, try to parse the file that was used in previous nopCommerce versions
+                    filePath = fileProvider.MapPath(NopDataSettingsDefaults.ObsoleteFilePath);
+                    if (!fileProvider.FileExists(filePath))
+                        return new DataSettings();
+
+                    //get data settings from the old txt file
+                    var dataSettings = LoadDataSettingsFromOldFile(fileProvider.ReadAllText(filePath, Encoding.UTF8));
+
+                    //save data settings to the new file
+                    SaveSettings(dataSettings, fileProvider);
+
+                    //and delete the old one
+                    fileProvider.DeleteFile(filePath);
+
+                    Singleton<DataSettings>.Instance = dataSettings;
+                    return Singleton<DataSettings>.Instance;
+                }
+
+                connectionString = fileProvider.ReadAllText(filePath, Encoding.UTF8);
+                if (string.IsNullOrEmpty(connectionString))
                     return new DataSettings();
-
-                //get data settings from the old txt file
-                var dataSettings = LoadDataSettingsFromOldFile(fileProvider.ReadAllText(filePath, Encoding.UTF8));
-
-                //save data settings to the new file
-                SaveSettings(dataSettings, fileProvider);
-
-                //and delete the old one
-                fileProvider.DeleteFile(filePath);
-
-                Singleton<DataSettings>.Instance = dataSettings;
-                return Singleton<DataSettings>.Instance;
             }
 
-            var text = fileProvider.ReadAllText(filePath, Encoding.UTF8);
-            if (string.IsNullOrEmpty(text))
-                return new DataSettings();
-
             //get data settings from the JSON file
-            Singleton<DataSettings>.Instance = JsonConvert.DeserializeObject<DataSettings>(text);
+            Singleton<DataSettings>.Instance = JsonConvert.DeserializeObject<DataSettings>(connectionString);
 
             return Singleton<DataSettings>.Instance;
         }

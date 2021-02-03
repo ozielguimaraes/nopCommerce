@@ -14,5 +14,11 @@
         /// Gets a path to the file that contains data settings
         /// </summary>
         public static string FilePath => "~/App_Data/dataSettings.json";
+
+
+        /// <summary>
+        /// Gets the name of an environment variable with connection string settings
+        /// </summary>
+        public static string EnvironmentVariableName => "nop_datasettings";
     }
 }
