@@ -464,6 +464,9 @@ namespace Nop.Web.Framework.Migrations.UpgradeTo440
                 ["Admin.Reports.SalesSummary.Fields.Shipping"] = "Shipping",
                 ["Admin.Reports.SalesSummary.Fields.Tax"] = "Tax",
                 ["Admin.Reports.SalesSummary.Fields.OrderTotal"] = "OrderTotal",
+
+                //#3950
+                ["Admin.Catalog.Products.ProductAttributes.Attributes.AlreadyExistsInCombination"] = "This attribute is already exists into combination: '{0}'.",
             }).Wait();
 
             // rename locales
