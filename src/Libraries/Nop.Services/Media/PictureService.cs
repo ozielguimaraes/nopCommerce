@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,15 +13,7 @@ using Nop.Data;
 using Nop.Services.Catalog;
 using Nop.Services.Configuration;
 using Nop.Services.Seo;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-using SixLabors.ImageSharp.Formats.Bmp;
-using SixLabors.ImageSharp.Formats.Gif;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
-using static SixLabors.ImageSharp.Configuration;
+using SkiaSharp;
 
 namespace Nop.Services.Media
 {
@@ -96,60 +87,6 @@ namespace Nop.Services.Media
         [Sql.Expression("encode(digest({0}, 'sha512'), 'hex')", ServerSideOnly = true, Configuration = ProviderName.PostgreSQL95)]
         public static string Hash(byte[] binaryData, int limit)
             => throw new InvalidOperationException("This function should be used only in database code");
-
-        /// <summary>
-        /// Calculates picture dimensions whilst maintaining aspect
-        /// </summary>
-        /// <param name="originalSize">The original picture size</param>
-        /// <param name="targetSize">The target picture size (longest side)</param>
-        /// <param name="resizeType">Resize type</param>
-        /// <param name="ensureSizePositive">A value indicating whether we should ensure that size values are positive</param>
-        /// <returns></returns>
-        protected virtual Size CalculateDimensions(Size originalSize, int targetSize,
-            ResizeType resizeType = ResizeType.LongestSide, bool ensureSizePositive = true)
-        {
-            float width, height;
-
-            switch (resizeType)
-            {
-                case ResizeType.LongestSide:
-                    if (originalSize.Height > originalSize.Width)
-                    {
-                        // portrait
-                        width = originalSize.Width * (targetSize / (float)originalSize.Height);
-                        height = targetSize;
-                    }
-                    else
-                    {
-                        // landscape or square
-                        width = targetSize;
-                        height = originalSize.Height * (targetSize / (float)originalSize.Width);
-                    }
-
-                    break;
-                case ResizeType.Width:
-                    width = targetSize;
-                    height = originalSize.Height * (targetSize / (float)originalSize.Width);
-                    break;
-                case ResizeType.Height:
-                    width = originalSize.Width * (targetSize / (float)originalSize.Height);
-                    height = targetSize;
-                    break;
-                default:
-                    throw new Exception("Not supported ResizeType");
-            }
-
-            if (!ensureSizePositive)
-                return new Size((int)Math.Round(width), (int)Math.Round(height));
-
-            if (width < 1)
-                width = 1;
-            if (height < 1)
-                height = 1;
-
-            //we invoke Math.Round to ensure that no white background is rendered - https://www.nopcommerce.com/boards/topic/40616/image-resizing-bug
-            return new Size((int)Math.Round(width), (int)Math.Round(height));
-        }
 
         /// <summary>
         /// Loads a picture from file
@@ -362,46 +299,80 @@ namespace Nop.Services.Media
         }
 
         /// <summary>
-        /// Encode the image into a byte array in accordance with the specified image format
+        /// Get image format by mime type
         /// </summary>
-        /// <typeparam name="TPixel">Pixel data type</typeparam>
-        /// <param name="image">Image data</param>
-        /// <param name="imageFormat">Image format</param>
-        /// <param name="quality">Quality index that will be used to encode the image</param>
-        /// <returns>Image binary data</returns>
-        protected virtual async Task<byte[]> EncodeImageAsync<TPixel>(Image<TPixel> image, IImageFormat imageFormat, int? quality = null)
-            where TPixel : unmanaged, IPixel<TPixel>
+        /// <param name="mimetype">Mime type</param>
+        /// <returns>SKEncodedImageFormat</returns>
+        protected SKEncodedImageFormat GetImageFormatByMimeType(string mimeType)
         {
-            await using var stream = new MemoryStream();
-            var imageEncoder = Default.ImageFormatsManager.FindEncoder(imageFormat);
-            switch (imageEncoder)
+            var format = SKEncodedImageFormat.Jpeg;
+            if (string.IsNullOrEmpty(mimeType))
+                return format;
+
+            var parts = mimeType.ToLower().Split('/');
+            var lastPart = parts[^1];
+
+            switch (lastPart)
             {
-                case JpegEncoder jpegEncoder:
-                    jpegEncoder.Subsample = JpegSubsample.Ratio444;
-                    jpegEncoder.Quality = quality ?? _mediaSettings.DefaultImageQuality;
-                    await jpegEncoder.EncodeAsync(image, stream, default);
+                case "webp":
+                    format = SKEncodedImageFormat.Webp;
                     break;
-
-                case PngEncoder pngEncoder:
-                    pngEncoder.ColorType = PngColorType.RgbWithAlpha;
-                    await pngEncoder.EncodeAsync(image, stream, default);
+                case "png":
+                case "gif":
+                case "bmp":
+                case "x-icon":
+                    format = SKEncodedImageFormat.Png;
                     break;
-
-                case BmpEncoder bmpEncoder:
-                    bmpEncoder.BitsPerPixel = BmpBitsPerPixel.Pixel32;
-                    await bmpEncoder.EncodeAsync(image, stream, default);
-                    break;
-
-                case GifEncoder gifEncoder:
-                    await gifEncoder.EncodeAsync(image, stream, default);
-                    break;
-
                 default:
-                    await imageEncoder.EncodeAsync(image, stream, default);
                     break;
             }
 
-            return stream.ToArray();
+            return format;
+        }
+
+        /// <summary>
+        /// Resize image by targetSize
+        /// </summary>
+        /// <param name="image">Source image</param>
+        /// <param name="format">Destination format</param>
+        /// <param name="targetSize">Target size</param>
+        /// <returns>Image as array of byte[]</returns>
+        protected byte[] ImageResize(SKBitmap image, SKEncodedImageFormat format, int targetSize)
+        {
+            if (image == null)
+                throw new ArgumentNullException("Image is null");
+
+            float width, height;
+            if (image.Height > image.Width)
+            {
+                // portrait
+                width = image.Width * (targetSize / (float)image.Height);
+                height = targetSize;
+            }
+            else
+            {
+                // landscape or square
+                width = targetSize;
+                height = image.Height * (targetSize / (float)image.Width);
+            }
+
+            if ((int)width == 0 || (int)height == 0)
+            {
+                width = image.Width;
+                height = image.Height;
+            }
+            try
+            {
+                using var resizedBitmap = image.Resize(new SKImageInfo((int)width, (int)height), SKFilterQuality.Medium);
+                using var cropImage = SKImage.FromBitmap(resizedBitmap);
+
+                return cropImage.Encode(format, _mediaSettings.DefaultImageQuality).ToArray();
+            }
+            catch
+            {
+                return image.Bytes;
+            }
+
         }
 
         #endregion
@@ -430,6 +401,8 @@ namespace Nop.Services.Media
                     break;
                 case "x-icon":
                     lastPart = "ico";
+                    break;
+                default:
                     break;
             }
 
@@ -484,18 +457,24 @@ namespace Nop.Services.Media
             var fileExtension = _fileProvider.GetFileExtension(filePath);
             var thumbFileName = $"{_fileProvider.GetFileNameWithoutExtension(filePath)}_{targetSize}{fileExtension}";
             var thumbFilePath = await GetThumbLocalPathAsync(thumbFileName);
-            if (!await GeneratedThumbExistsAsync(thumbFilePath, thumbFileName))
-            {
-                using var image = Image.Load<Rgba32>(filePath, out var imageFormat);
-                image.Mutate(imageProcess => imageProcess.Resize(new ResizeOptions
-                {
-                    Mode = ResizeMode.Max,
-                    Size = CalculateDimensions(image.Size(), targetSize)
-                }));
-                var pictureBinary = await EncodeImageAsync(image, imageFormat);
-                await SaveThumbAsync(thumbFilePath, thumbFileName, imageFormat.DefaultMimeType, pictureBinary);
-            }
+            if (await GeneratedThumbExistsAsync(thumbFilePath, thumbFileName))
+                return await GetThumbUrlAsync(thumbFileName, storeLocation);
 
+            using var semaphore = new Semaphore(1, 1, thumbFileName);
+            semaphore.WaitOne();
+            try
+            {
+                using var image = SKBitmap.Decode(filePath);
+                var codec = SKCodec.Create(filePath);
+                var format = codec.EncodedFormat;
+                var pictureBinary = ImageResize(image, format, targetSize);
+                await SaveThumbAsync(thumbFilePath, thumbFileName, string.Empty, pictureBinary);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+            
             return await GetThumbUrlAsync(thumbFileName, storeLocation);
         }
 
@@ -565,54 +544,56 @@ namespace Nop.Services.Media
                 thumbFileName = !string.IsNullOrEmpty(seoFileName)
                     ? $"{picture.Id:0000000}_{seoFileName}.{lastPart}"
                     : $"{picture.Id:0000000}.{lastPart}";
+
+                var thumbFilePath = await GetThumbLocalPathAsync(thumbFileName);
+                if (await GeneratedThumbExistsAsync(thumbFilePath, thumbFileName))
+                    return (await GetThumbUrlAsync(thumbFileName, storeLocation), picture);
+
+                pictureBinary ??= await LoadPictureBinaryAsync(picture);
+
+                using var semaphore = new Semaphore(1, 1, thumbFileName);
+                semaphore.WaitOne();
+                try
+                {
+                    await SaveThumbAsync(thumbFilePath, thumbFileName, string.Empty, pictureBinary);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
             }
             else
             {
                 thumbFileName = !string.IsNullOrEmpty(seoFileName)
                     ? $"{picture.Id:0000000}_{seoFileName}_{targetSize}.{lastPart}"
                     : $"{picture.Id:0000000}_{targetSize}.{lastPart}";
-            }
 
-            var thumbFilePath = await GetThumbLocalPathAsync(thumbFileName);
+                var thumbFilePath = await GetThumbLocalPathAsync(thumbFileName);
+                if (await GeneratedThumbExistsAsync(thumbFilePath, thumbFileName))
+                    return (await GetThumbUrlAsync(thumbFileName, storeLocation), picture);
 
-            if (await GeneratedThumbExistsAsync(thumbFilePath, thumbFileName))
-                return (await GetThumbUrlAsync(thumbFileName, storeLocation), picture);
+                pictureBinary ??= await LoadPictureBinaryAsync(picture);
 
-            //the named semaphore helps to avoid creating the same files in different threads,
-            //and does not decrease performance significantly, because the code is blocked only for the specific file.
-            using (var semaphore = new Semaphore(1, 1, thumbFileName))
-            {
+                //the named semaphore helps to avoid creating the same files in different threads,
+                //and does not decrease performance significantly, because the code is blocked only for the specific file.
+                using var semaphore = new Semaphore(1, 1, thumbFileName);
                 semaphore.WaitOne();
-
                 try
                 {
-                    //check, if the file was created, while we were waiting for the release of the mutex.
-                    if (!await GeneratedThumbExistsAsync(thumbFilePath, thumbFileName))
+                    if (pictureBinary != null)
                     {
-                        pictureBinary ??= await LoadPictureBinaryAsync(picture);
-
-                        if ((pictureBinary?.Length ?? 0) == 0)
-                            return showDefaultPicture ? (await GetDefaultPictureUrlAsync(targetSize, defaultPictureType, storeLocation), picture) : (string.Empty, picture);
-
-                        byte[] pictureBinaryResized;
-                        if (targetSize != 0)
+                        try
                         {
-                            //resizing required
-                            using var image = Image.Load<Rgba32>(pictureBinary, out var imageFormat);
-                            image.Mutate(imageProcess => imageProcess.Resize(new ResizeOptions
-                            {
-                                Mode = ResizeMode.Max,
-                                Size = CalculateDimensions(image.Size(), targetSize)
-                            }));
-
-                            pictureBinaryResized = await EncodeImageAsync(image, imageFormat);
+                            using var image = SKBitmap.Decode(pictureBinary);
+                            var format = GetImageFormatByMimeType(picture.MimeType);
+                            pictureBinary = ImageResize(image, format, targetSize);
                         }
-                        else
-                            //create a copy of pictureBinary
-                            pictureBinaryResized = pictureBinary.ToArray();
-
-                        await SaveThumbAsync(thumbFilePath, thumbFileName, picture.MimeType, pictureBinaryResized);
+                        catch
+                        {
+                        }
                     }
+
+                    await SaveThumbAsync(thumbFilePath, thumbFileName, string.Empty, pictureBinary);
                 }
                 finally
                 {
@@ -738,7 +719,7 @@ namespace Nop.Services.Media
             seoFilename = CommonHelper.EnsureMaximumLength(seoFilename, 100);
 
             if (validateBinary)
-                pictureBinary = await ValidatePictureAsync(pictureBinary, mimeType);
+                pictureBinary = ValidatePicture(pictureBinary, mimeType);
 
             var picture = new Picture
             {
@@ -770,6 +751,7 @@ namespace Nop.Services.Media
             {
                 ".bmp",
                 ".gif",
+                ".webp",
                 ".jpeg",
                 ".jpg",
                 ".jpe",
@@ -818,6 +800,9 @@ namespace Nop.Services.Media
                     case ".pjp":
                         contentType = MimeTypes.ImageJpeg;
                         break;
+                    case ".webp":
+                        contentType = MimeTypes.ImageWebp;
+                        break;
                     case ".png":
                         contentType = MimeTypes.ImagePng;
                         break;
@@ -863,7 +848,7 @@ namespace Nop.Services.Media
             seoFilename = CommonHelper.EnsureMaximumLength(seoFilename, 100);
 
             if (validateBinary)
-                pictureBinary = await ValidatePictureAsync(pictureBinary, mimeType);
+                pictureBinary = ValidatePicture(pictureBinary, mimeType);
 
             var picture = await GetPictureByIdAsync(pictureId);
             if (picture == null)
@@ -961,20 +946,24 @@ namespace Nop.Services.Media
         /// <param name="pictureBinary">Picture binary</param>
         /// <param name="mimeType">MIME type</param>
         /// <returns>Picture binary or throws an exception</returns>
-        public virtual async Task<byte[]> ValidatePictureAsync(byte[] pictureBinary, string mimeType)
+        public virtual byte[] ValidatePicture(byte[] pictureBinary, string mimeType)
         {
-            using var image = Image.Load<Rgba32>(pictureBinary, out var imageFormat);
-            //resize the image in accordance with the maximum size
-            if (Math.Max(image.Height, image.Width) > _mediaSettings.MaximumImageSize)
+            try
             {
-                image.Mutate(imageProcess => imageProcess.Resize(new ResizeOptions
-                {
-                    Mode = ResizeMode.Max,
-                    Size = new Size(_mediaSettings.MaximumImageSize)
-                }));
-            }
+                using var image = SKBitmap.Decode(pictureBinary);
 
-            return await EncodeImageAsync(image, imageFormat);
+                //resize the image in accordance with the maximum size
+                if (Math.Max(image.Height, image.Width) > _mediaSettings.MaximumImageSize)
+                {
+                    var format = GetImageFormatByMimeType(mimeType);
+                    pictureBinary = ImageResize(image, format, _mediaSettings.MaximumImageSize);
+                }
+                return pictureBinary;
+            }
+            catch
+            {
+                return pictureBinary;
+            }
         }
 
         /// <summary>
