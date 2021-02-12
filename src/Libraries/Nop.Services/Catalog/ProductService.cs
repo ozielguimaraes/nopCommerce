@@ -825,7 +825,7 @@ namespace Nop.Services.Catalog
             if (categoryIds?.Contains(0) == true)
                 categoryIds.Remove(0);
 
-            if (manufacturerIds.Contains(0) == true)
+            if (manufacturerIds?.Contains(0) == true)
                 manufacturerIds.Remove(0);
 
             //some databases don't support int.MaxValue
