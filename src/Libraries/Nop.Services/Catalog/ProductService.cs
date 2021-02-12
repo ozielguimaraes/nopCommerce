@@ -822,21 +822,11 @@ namespace Nop.Services.Catalog
             bool showHidden = false,
             bool? overridePublished = null)
         {
-            //validate "categoryIds" parameter
             if (categoryIds?.Contains(0) == true)
                 categoryIds.Remove(0);
 
-            //validate "manufacturerIds" parameter
-            if (manufacturerIds?.Contains(0) == true)
+            if (manufacturerIds.Contains(0) == true)
                 manufacturerIds.Remove(0);
-
-            //pass specification identifiers as comma-delimited string
-            var commaSeparatedSpecIds = string.Empty;
-            if (filteredSpecs != null)
-            {
-                ((List<int>)filteredSpecs).Sort();
-                commaSeparatedSpecIds = string.Join(",", filteredSpecs);
-            }
 
             //some databases don't support int.MaxValue
             if (pageSize == int.MaxValue)
@@ -951,11 +941,15 @@ namespace Nop.Services.Catalog
 
             if (manufacturerIds?.Count > 0)
             {
+                var productManufacturerQuery =
+                    from pm in _productManufacturerRepository.Table
+                    where (!excludeFeaturedProducts || !pm.IsFeaturedProduct) &&
+                        manufacturerIds.Contains(pm.ManufacturerId)
+                    select pm;
+
                 productsQuery =
                     from p in productsQuery
-                    join pmm in _productManufacturerRepository.Table on p.Id equals pmm.ProductId
-                    where manufacturerIds.Contains(pmm.ManufacturerId) &&
-                        (!excludeFeaturedProducts || !pmm.IsFeaturedProduct)
+                    where productManufacturerQuery.Any(pm => pm.ProductId == p.Id)
                     select p;
             }
 

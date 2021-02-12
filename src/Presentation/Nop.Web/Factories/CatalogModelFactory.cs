@@ -173,7 +173,7 @@ namespace Nop.Web.Factories
         /// </summary>
         /// <param name="model">Catalog products model</param>
         /// <param name="command">Model to get the catalog products</param>
-        protected virtual async Task PrepareSortingOptionsAsync(CatalogProductsModel model, GetCatalogProductsCommand command)
+        protected virtual async Task PrepareSortingOptionsAsync(CatalogProductsModel model, CatalogProductsCommand command)
         {
             //set the order by position by default
             model.OrderBy = command.OrderBy;
@@ -214,7 +214,7 @@ namespace Nop.Web.Factories
         /// </summary>
         /// <param name="model">Catalog products model</param>
         /// <param name="command">Model to get the catalog products</param>
-        protected virtual async Task PrepareViewModesAsync(CatalogProductsModel model, GetCatalogProductsCommand command)
+        protected virtual async Task PrepareViewModesAsync(CatalogProductsModel model, CatalogProductsCommand command)
         {
             model.AllowProductViewModeChanging = _catalogSettings.AllowProductViewModeChanging;
 
@@ -249,7 +249,7 @@ namespace Nop.Web.Factories
         /// <param name="allowCustomersToSelectPageSize">Are customers allowed to select page size?</param>
         /// <param name="pageSizeOptions">Page size options</param>
         /// <param name="fixedPageSize">Fixed page size</param>
-        protected virtual Task PreparePageSizeOptionsAsync(CatalogProductsModel model, GetCatalogProductsCommand command,
+        protected virtual Task PreparePageSizeOptionsAsync(CatalogProductsModel model, CatalogProductsCommand command,
             bool allowCustomersToSelectPageSize, string pageSizeOptions, int fixedPageSize)
         {
             if (command.PageNumber <= 0)
@@ -420,7 +420,7 @@ namespace Nop.Web.Factories
         /// </summary>
         /// <param name="command">Model to get the catalog products</param>
         /// <returns>The <see cref="Task"/> containing the price range converted to primary store currency</returns>
-        protected virtual async Task<PriceRangeModel> GetConvertedPriceRangeAsync(GetCatalogProductsCommand command)
+        protected virtual async Task<PriceRangeModel> GetConvertedPriceRangeAsync(CatalogProductsCommand command)
         {
             var result = new PriceRangeModel();
 
@@ -443,12 +443,11 @@ namespace Nop.Web.Factories
 
                 var workingCurrency = await _workContext.GetWorkingCurrencyAsync();
 
-                result.From = result.From > 0
-                    ? await _currencyService.ConvertToPrimaryStoreCurrencyAsync(result.From.Value, workingCurrency)
-                    : 0;
-                result.To = result.To > 0
-                    ? await _currencyService.ConvertToPrimaryStoreCurrencyAsync(result.To.Value, workingCurrency)
-                    : 0;
+                if (result.From.HasValue)
+                    result.From = await _currencyService.ConvertToPrimaryStoreCurrencyAsync(result.From.Value, workingCurrency);
+
+                if (result.To.HasValue)
+                    result.To = await _currencyService.ConvertToPrimaryStoreCurrencyAsync(result.To.Value, workingCurrency);
             }
 
             return result;
@@ -543,12 +542,21 @@ namespace Nop.Web.Factories
         {
             var model = new PriceRangeFilterModel();
 
-            if (!availablePriceRange.To.HasValue || availablePriceRange.To == 0
+            if (!availablePriceRange.To.HasValue || availablePriceRange.To <= 0
                 || availablePriceRange.To == availablePriceRange.From)
             {
                 // filter by price isn't available
+                selectedPriceRange.From = null;
+                selectedPriceRange.To = null;
+
                 return model;
             }
+
+            if (selectedPriceRange.From < availablePriceRange.From)
+                selectedPriceRange.From = availablePriceRange.From;
+
+            if (selectedPriceRange.To > availablePriceRange.To || selectedPriceRange.To < availablePriceRange.From)
+                selectedPriceRange.To = availablePriceRange.To;
 
             var workingCurrency = await _workContext.GetWorkingCurrencyAsync();
 
@@ -590,7 +598,7 @@ namespace Nop.Web.Factories
         /// <param name="category">Category</param>
         /// <param name="command">Model to get the catalog products</param>
         /// <returns>Category model</returns>
-        public virtual async Task<CategoryModel> PrepareCategoryModelAsync(Category category, GetCatalogProductsCommand command)
+        public virtual async Task<CategoryModel> PrepareCategoryModelAsync(Category category, CatalogProductsCommand command)
         {
             if (category == null)
                 throw new ArgumentNullException(nameof(category));
@@ -868,7 +876,7 @@ namespace Nop.Web.Factories
         /// <param name="category">Category</param>
         /// <param name="command">Model to get the catalog products</param>
         /// <returns>The category products model</returns>
-        public virtual async Task<CatalogProductsModel> PrepareCategoryProductsModelAsync(Category category, GetCatalogProductsCommand command)
+        public virtual async Task<CatalogProductsModel> PrepareCategoryProductsModelAsync(Category category, CatalogProductsCommand command)
         {
             if (category == null)
                 throw new ArgumentNullException(nameof(category));
@@ -981,7 +989,7 @@ namespace Nop.Web.Factories
         /// <param name="manufacturer">Manufacturer identifier</param>
         /// <param name="command">Model to get the catalog products</param>
         /// <returns>Manufacturer model</returns>
-        public virtual async Task<ManufacturerModel> PrepareManufacturerModelAsync(Manufacturer manufacturer, GetCatalogProductsCommand command)
+        public virtual async Task<ManufacturerModel> PrepareManufacturerModelAsync(Manufacturer manufacturer, CatalogProductsCommand command)
         {
             if (manufacturer == null)
                 throw new ArgumentNullException(nameof(manufacturer));
@@ -1019,7 +1027,7 @@ namespace Nop.Web.Factories
         /// <param name="manufacturer">Manufacturer</param>
         /// <param name="command">Model to get the catalog products</param>
         /// <returns>The manufacturer products model</returns>
-        public virtual async Task<CatalogProductsModel> PrepareManufacturerProductsModelAsync(Manufacturer manufacturer, GetCatalogProductsCommand command)
+        public virtual async Task<CatalogProductsModel> PrepareManufacturerProductsModelAsync(Manufacturer manufacturer, CatalogProductsCommand command)
         {
             if (manufacturer == null)
                 throw new ArgumentNullException(nameof(manufacturer));
@@ -1229,7 +1237,7 @@ namespace Nop.Web.Factories
         /// <param name="vendor">Vendor</param>
         /// <param name="command">Model to get the catalog products</param>
         /// <returns>Vendor model</returns>
-        public virtual async Task<VendorModel> PrepareVendorModelAsync(Vendor vendor, GetCatalogProductsCommand command)
+        public virtual async Task<VendorModel> PrepareVendorModelAsync(Vendor vendor, CatalogProductsCommand command)
         {
             if (vendor == null)
                 throw new ArgumentNullException(nameof(vendor));
@@ -1259,7 +1267,7 @@ namespace Nop.Web.Factories
         /// <param name="vendor">Vendor</param>
         /// <param name="command">Model to get the catalog products</param>
         /// <returns>The vendor products model</returns>
-        public virtual async Task<CatalogProductsModel> PrepareVendorProductsModelAsync(Vendor vendor, GetCatalogProductsCommand command)
+        public virtual async Task<CatalogProductsModel> PrepareVendorProductsModelAsync(Vendor vendor, CatalogProductsCommand command)
         {
             if (vendor == null)
                 throw new ArgumentNullException(nameof(vendor));
@@ -1465,7 +1473,7 @@ namespace Nop.Web.Factories
         /// <param name="productTag">Product tag</param>
         /// <param name="command">Model to get the catalog products</param>
         /// <returns>Products by tag model</returns>
-        public virtual async Task<ProductsByTagModel> PrepareProductsByTagModelAsync(ProductTag productTag, GetCatalogProductsCommand command)
+        public virtual async Task<ProductsByTagModel> PrepareProductsByTagModelAsync(ProductTag productTag, CatalogProductsCommand command)
         {
             if (productTag == null)
                 throw new ArgumentNullException(nameof(productTag));
@@ -1490,7 +1498,7 @@ namespace Nop.Web.Factories
         /// <param name="productTag">Product tag</param>
         /// <param name="command">Model to get the catalog products</param>
         /// <returns>The tag products model</returns>
-        public virtual async Task<CatalogProductsModel> PrepareTagProductsModelAsync(ProductTag productTag, GetCatalogProductsCommand command)
+        public virtual async Task<CatalogProductsModel> PrepareTagProductsModelAsync(ProductTag productTag, CatalogProductsCommand command)
         {
             if (productTag == null)
                 throw new ArgumentNullException(nameof(productTag));
@@ -1577,7 +1585,7 @@ namespace Nop.Web.Factories
         /// <param name="model">Search model</param>
         /// <param name="command">Model to get the catalog products</param>
         /// <returns>Search model</returns>
-        public virtual async Task<SearchModel> PrepareSearchModelAsync(SearchModel model, GetCatalogProductsCommand command)
+        public virtual async Task<SearchModel> PrepareSearchModelAsync(SearchModel model, CatalogProductsCommand command)
         {
             if (model == null)
                 throw new ArgumentNullException(nameof(model));
@@ -1677,7 +1685,7 @@ namespace Nop.Web.Factories
         /// <param name="model">Search model</param>
         /// <param name="command">Model to get the catalog products</param>
         /// <returns>The search products model</returns>
-        public virtual async Task<CatalogProductsModel> PrepareSearchProductsModelAsync(SearchModel searchModel, GetCatalogProductsCommand command)
+        public virtual async Task<CatalogProductsModel> PrepareSearchProductsModelAsync(SearchModel searchModel, CatalogProductsCommand command)
         {
             if (command == null)
                 throw new ArgumentNullException(nameof(command));

@@ -7,7 +7,7 @@ namespace Nop.Web.Models.Catalog
     /// <summary>
     /// Represents a model to get the catalog products
     /// </summary>
-    public partial record GetCatalogProductsCommand : BasePageableModel
+    public partial record CatalogProductsCommand : BasePageableModel
     {
         #region Properties
 

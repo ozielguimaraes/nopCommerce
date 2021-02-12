@@ -92,7 +92,7 @@ namespace Nop.Web.Controllers
 
         #region Categories
 
-        public virtual async Task<IActionResult> Category(int categoryId, GetCatalogProductsCommand command)
+        public virtual async Task<IActionResult> Category(int categoryId, CatalogProductsCommand command)
         {
             var category = await _categoryService.GetCategoryByIdAsync(categoryId);
 
@@ -121,7 +121,7 @@ namespace Nop.Web.Controllers
             return View(templateViewPath, model);
         }
 
-        public virtual async Task<IActionResult> GetCategoryProducts(int categoryId, GetCatalogProductsCommand command)
+        public virtual async Task<IActionResult> GetCategoryProducts(int categoryId, CatalogProductsCommand command)
         {
             var category = await _categoryService.GetCategoryByIdAsync(categoryId);
 
@@ -155,7 +155,7 @@ namespace Nop.Web.Controllers
 
         #region Manufacturers
 
-        public virtual async Task<IActionResult> Manufacturer(int manufacturerId, GetCatalogProductsCommand command)
+        public virtual async Task<IActionResult> Manufacturer(int manufacturerId, CatalogProductsCommand command)
         {
             var manufacturer = await _manufacturerService.GetManufacturerByIdAsync(manufacturerId);
             
@@ -185,7 +185,7 @@ namespace Nop.Web.Controllers
             return View(templateViewPath, model);
         }
 
-        public virtual async Task<IActionResult> GetManufacturerProducts(int manufacturerId, GetCatalogProductsCommand command)
+        public virtual async Task<IActionResult> GetManufacturerProducts(int manufacturerId, CatalogProductsCommand command)
         {
             var manufacturer = await _manufacturerService.GetManufacturerByIdAsync(manufacturerId);
 
@@ -208,7 +208,7 @@ namespace Nop.Web.Controllers
 
         #region Vendors
 
-        public virtual async Task<IActionResult> Vendor(int vendorId, GetCatalogProductsCommand command)
+        public virtual async Task<IActionResult> Vendor(int vendorId, CatalogProductsCommand command)
         {
             var vendor = await _vendorService.GetVendorByIdAsync(vendorId);
 
@@ -231,7 +231,7 @@ namespace Nop.Web.Controllers
             return View(model);
         }
 
-        public virtual async Task<IActionResult> GetVendorProducts(int vendorId, GetCatalogProductsCommand command)
+        public virtual async Task<IActionResult> GetVendorProducts(int vendorId, CatalogProductsCommand command)
         {
             var vendor = await _vendorService.GetVendorByIdAsync(vendorId);
 
@@ -257,7 +257,7 @@ namespace Nop.Web.Controllers
 
         #region Product tags
         
-        public virtual async Task<IActionResult> ProductsByTag(int productTagId, GetCatalogProductsCommand command)
+        public virtual async Task<IActionResult> ProductsByTag(int productTagId, CatalogProductsCommand command)
         {
             var productTag = await _productTagService.GetProductTagByIdAsync(productTagId);
             if (productTag == null)
@@ -268,7 +268,7 @@ namespace Nop.Web.Controllers
             return View(model);
         }
 
-        public virtual async Task<IActionResult> GetTagProducts(int tagId, GetCatalogProductsCommand command)
+        public virtual async Task<IActionResult> GetTagProducts(int tagId, CatalogProductsCommand command)
         {
             var productTag = await _productTagService.GetProductTagByIdAsync(tagId);
             if (productTag == null)
@@ -290,7 +290,7 @@ namespace Nop.Web.Controllers
 
         #region Searching
 
-        public virtual async Task<IActionResult> Search(SearchModel model, GetCatalogProductsCommand command)
+        public virtual async Task<IActionResult> Search(SearchModel model, CatalogProductsCommand command)
         {
             //'Continue shopping' URL
             await _genericAttributeService.SaveAttributeAsync(await _workContext.GetCurrentCustomerAsync(),
@@ -338,7 +338,7 @@ namespace Nop.Web.Controllers
             return Json(result);
         }
 
-        public virtual async Task<IActionResult> SearchProducts(SearchModel searchModel, GetCatalogProductsCommand command)
+        public virtual async Task<IActionResult> SearchProducts(SearchModel searchModel, CatalogProductsCommand command)
         {
             if (searchModel == null)
                 searchModel = new SearchModel();

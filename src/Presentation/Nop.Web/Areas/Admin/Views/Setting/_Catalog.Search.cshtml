@@ -181,7 +181,7 @@
 
     function toggleSearchPageAutomaticallyCalculatePriceRange() {
         if ($('#@Html.IdFor(model => model.SearchPagePriceRangeFiltering)').is(':checked')) {
-            if (!$('#@Html.IdFor(model => model.ProductsByTagAutomaticallyCalculatePriceRange)').is(':checked')) {
+            if (!$('#@Html.IdFor(model => model.SearchPageAutomaticallyCalculatePriceRange)').is(':checked')) {
                 $('#pnlSearchPagePriceRange').show();
             }
             $('#pnlSearchPageAutomaticallyCalculatePriceRange').show();

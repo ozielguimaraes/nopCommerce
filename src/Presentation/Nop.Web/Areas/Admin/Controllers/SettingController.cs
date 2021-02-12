@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -598,9 +599,8 @@ namespace Nop.Web.Areas.Admin.Controllers
             if (!ModelState.IsValid)
             {
                 //if we got this far, something failed, redisplay form
-                foreach (var modelState in ModelState.Values)
-                    foreach (var error in modelState.Errors)
-                        _notificationService.ErrorNotification(error.ErrorMessage);
+                foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
+                    _notificationService.ErrorNotification(error.ErrorMessage);
 
                 return RedirectToAction("Catalog");
             }

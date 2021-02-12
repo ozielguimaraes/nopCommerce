@@ -220,8 +220,8 @@ namespace Nop.Web.Areas.Admin.Factories
                 model.Published = true;
                 model.AllowCustomersToSelectPageSize = true;
                 model.PriceRangeFiltering = true;
-                model.PriceFrom = 0;
-                model.PriceTo = 10000;
+                model.PriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom;
+                model.PriceTo = NopCatalogDefaults.DefaultPriceRangeTo;
             }
 
             model.PrimaryStoreCurrencyCode = (await _currencyService.GetCurrencyByIdAsync(_currencySettings.PrimaryStoreCurrencyId)).CurrencyCode;

@@ -77,7 +77,7 @@ namespace Nop.Tests.Nop.Web.Tests.Public.Factories
         [Test]
         public async Task PrepareSearchModelShouldDependOnSettings()
         {
-            var model = await _catalogModelFactory.PrepareSearchModelAsync(new SearchModel(), new GetCatalogProductsCommand());
+            var model = await _catalogModelFactory.PrepareSearchModelAsync(new SearchModel(), new CatalogProductsCommand());
             
             model.AvailableVendors.Any().Should().BeTrue();
             model.AvailableVendors.Count.Should().Be(3);
@@ -86,7 +86,7 @@ namespace Nop.Tests.Nop.Web.Tests.Public.Factories
         [Test]
         public async Task PrepareCategoryModelShouldDependOnSettings()
         {
-            var model = await _catalogModelFactory.PrepareCategoryModelAsync(_category, new GetCatalogProductsCommand());
+            var model = await _catalogModelFactory.PrepareCategoryModelAsync(_category, new CatalogProductsCommand());
            
             model.CategoryBreadcrumb.Any().Should().BeFalse();
             model.SubCategories.Count.Should().Be(3);

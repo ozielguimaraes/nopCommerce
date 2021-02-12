@@ -8,6 +8,20 @@ namespace Nop.Services.Catalog
     /// </summary>
     public static partial class NopCatalogDefaults
     {
+        #region Common
+
+        /// <summary>
+        /// Gets a default price range 'from'
+        /// </summary>
+        public static decimal DefaultPriceRangeFrom = 0;
+
+        /// <summary>
+        /// Gets a default price range 'to'
+        /// </summary>
+        public static decimal DefaultPriceRangeTo = 10000;
+
+        #endregion
+
         #region Products
 
         /// <summary>
