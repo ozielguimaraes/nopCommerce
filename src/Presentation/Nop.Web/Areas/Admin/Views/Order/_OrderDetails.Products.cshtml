@@ -17,21 +17,21 @@
                 <script>
                     function toggleOrderItemEdit@(item.Id)(editMode) {
                         if (editMode) {
-                            $('#pnlEditPvUnitPrice@(item.Id)').showField();
-                            $('#pnlEditPvQuantity@(item.Id)').showField();
-                            $('#pnlEditPvDiscount@(item.Id)').showField();
-                            $('#pnlEditPvPrice@(item.Id)').showField();
+                            $('#pnlEditPvUnitPrice@(item.Id)').show();
+                            $('#pnlEditPvQuantity@(item.Id)').show();
+                            $('#pnlEditPvDiscount@(item.Id)').show();
+                            $('#pnlEditPvPrice@(item.Id)').show();
                             $('#btnEditOrderItem@(item.Id)').hide();
                             $('#btnDeleteOrderItem@(item.Id)').hide();
-                            $('#btnSaveOrderItem@(item.Id)').showField();
-                            $('#btnCancelOrderItem@(item.Id)').showField();
+                            $('#btnSaveOrderItem@(item.Id)').show();
+                            $('#btnCancelOrderItem@(item.Id)').show();
                         } else {
                             $('#pnlEditPvUnitPrice@(item.Id)').hide();
                             $('#pnlEditPvQuantity@(item.Id)').hide();
                             $('#pnlEditPvDiscount@(item.Id)').hide();
                             $('#pnlEditPvPrice@(item.Id)').hide();
-                            $('#btnEditOrderItem@(item.Id)').showField();
-                            $('#btnDeleteOrderItem@(item.Id)').showField();
+                            $('#btnEditOrderItem@(item.Id)').show();
+                            $('#btnDeleteOrderItem@(item.Id)').show();
                             $('#btnSaveOrderItem@(item.Id)').hide();
                             $('#btnCancelOrderItem@(item.Id)').hide();
                         }
@@ -202,8 +202,8 @@
                         <td style="width: 15%;" class="text-center">
                             @if (Model.AllowCustomersToSelectTaxDisplayType)
                             {
-                                <div>@item.UnitPriceInclTax</div>
-                                <div>@item.UnitPriceExclTax</div>
+                                <div>@Html.Raw(item.UnitPriceInclTax)</div>
+                                <div>@Html.Raw(item.UnitPriceExclTax)</div>
                             }
                             else
                             {
@@ -211,12 +211,12 @@
                                 {
                                     case TaxDisplayType.ExcludingTax:
                                     {
-                                        @item.UnitPriceExclTax
+                                        @Html.Raw(item.UnitPriceExclTax)
                                     }
                                         break;
                                     case TaxDisplayType.IncludingTax:
                                     {
-                                        @item.UnitPriceInclTax
+                                        @Html.Raw(item.UnitPriceInclTax)
                                     }
                                         break;
                                     default:
@@ -255,8 +255,8 @@
                         <td style="width: 15%;" class="text-center">
                             @if (Model.AllowCustomersToSelectTaxDisplayType)
                             {
-                                <div>@item.DiscountInclTax</div>
-                                <div>@item.DiscountExclTax</div>
+                                <div>@Html.Raw(item.DiscountInclTax)</div>
+                                <div>@Html.Raw(item.DiscountExclTax)</div>
                             }
                             else
                             {
@@ -264,12 +264,12 @@
                                 {
                                     case TaxDisplayType.ExcludingTax:
                                         {
-                                        @item.DiscountExclTax
+                                        @Html.Raw(item.DiscountExclTax)
                                     }
                                         break;
                                     case TaxDisplayType.IncludingTax:
                                     {
-                                        @item.DiscountInclTax
+                                        @Html.Raw(item.DiscountInclTax)
                                     }
                                         break;
                                     default:
@@ -298,8 +298,8 @@
                         <td style="width: 15%;" class="text-center">
                             @if (Model.AllowCustomersToSelectTaxDisplayType)
                             {
-                                <div>@item.SubTotalInclTax</div>
-                                <div>@item.SubTotalExclTax</div>
+                                <div>@Html.Raw(item.SubTotalInclTax)</div>
+                                <div>@Html.Raw(item.SubTotalExclTax)</div>
                             }
                             else
                             {
@@ -307,12 +307,12 @@
                                 {
                                     case TaxDisplayType.ExcludingTax:
                                         {
-                                        @item.SubTotalExclTax
+                                        @Html.Raw(item.SubTotalExclTax)
                                     }
                                         break;
                                     case TaxDisplayType.IncludingTax:
                                     {
-                                        @item.SubTotalInclTax
+                                        @Html.Raw(item.SubTotalInclTax)
                                     }
                                         break;
                                     default:

@@ -6,30 +6,30 @@ using Nop.Core.Infrastructure;
 using Nop.Services.Media;
 using Nop.Services.Messages;
 
-namespace Nop.Plugin.Misc.SendinBlue.Services
+namespace Nop.Plugin.Misc.Sendinblue.Services
 {
     /// <summary>
     /// Represents overridden email sender
     /// </summary>
-    public class SendinBlueEmailSender : EmailSender
+    public class SendinblueEmailSender : EmailSender
     {
         #region Fields
 
         private readonly IStoreContext _storeContext;
-        private readonly SendinBlueSettings _sendinBlueSettings;
+        private readonly SendinblueSettings _sendinblueSettings;
 
         #endregion
 
         #region Ctor
 
-        public SendinBlueEmailSender(IDownloadService downloadService,
+        public SendinblueEmailSender(IDownloadService downloadService,
             INopFileProvider fileProvider,
             ISmtpBuilder smtpBuilder,
             IStoreContext storeContext,
-            SendinBlueSettings sendinBlueSettings) : base(downloadService, fileProvider, smtpBuilder)
+            SendinblueSettings sendinblueSettings) : base(downloadService, fileProvider, smtpBuilder)
         {
             _storeContext = storeContext;
-            _sendinBlueSettings = sendinBlueSettings;
+            _sendinblueSettings = sendinblueSettings;
         }
 
         #endregion
@@ -62,10 +62,10 @@ namespace Nop.Plugin.Misc.SendinBlue.Services
             int attachedDownloadId = 0, IDictionary<string, string> headers = null)
         {
             //add store identifier in email headers
-            if (emailAccount.Id == _sendinBlueSettings.EmailAccountId)
+            if (emailAccount.Id == _sendinblueSettings.EmailAccountId)
             {
                 headers ??= new Dictionary<string, string>();
-                headers.Add(SendinBlueDefaults.EmailCustomHeader, (await _storeContext.GetCurrentStoreAsync()).Id.ToString());
+                headers.Add(SendinblueDefaults.EmailCustomHeader, (await _storeContext.GetCurrentStoreAsync()).Id.ToString());
             }
 
             await base.SendEmailAsync(emailAccount, subject, body, fromAddress, fromName, toAddress, toName, replyTo, replyToName, bcc, cc, attachmentFilePath, attachmentFileName, attachedDownloadId, headers);

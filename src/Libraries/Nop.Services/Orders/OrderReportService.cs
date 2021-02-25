@@ -620,7 +620,8 @@ namespace Nop.Services.Orders
                     var dateFormat = groupBy switch
                     {
                         GroupByOptions.Day => dayFormat,
-                        GroupByOptions.Month => "MMMM, yyyy"
+                        GroupByOptions.Month => "MMMM, yyyy",
+                        _ => ""
                     };
 
                     reportLine.Summary = date.ToString(dateFormat);
@@ -839,8 +840,8 @@ namespace Nop.Services.Orders
                         select p;
             }
 
-            if (!showHidden && !_catalogSettings.IgnoreStoreLimitations && await _storeMappingService.IsEntityMappingExistsAsync<Product>(storeId))
-                query = query.Where(_storeMappingService.ApplyStoreMapping<Product>(storeId));
+            //apply store mapping constraints
+            query = await _storeMappingService.ApplyStoreMapping(query, storeId);
 
             query = query.OrderBy(p => p.Name);
 

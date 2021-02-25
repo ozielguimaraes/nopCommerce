@@ -5,31 +5,31 @@ using Nop.Core;
 using Nop.Services.Customers;
 using Nop.Web.Framework.Components;
 
-namespace Nop.Plugin.Misc.SendinBlue.Components
+namespace Nop.Plugin.Misc.Sendinblue.Components
 {
     /// <summary>
     /// Represents view component to embed tracking script on pages
     /// </summary>
-    [ViewComponent(Name = SendinBlueDefaults.TRACKING_VIEW_COMPONENT_NAME)]
-    public class WidgetsSendinBlueViewComponent : NopViewComponent
+    [ViewComponent(Name = SendinblueDefaults.TRACKING_VIEW_COMPONENT_NAME)]
+    public class WidgetsSendinblueViewComponent : NopViewComponent
     {
         #region Fields
 
         private readonly ICustomerService _customerService;
         private readonly IWorkContext _workContext;
-        private readonly SendinBlueSettings _sendinBlueSettings;
+        private readonly SendinblueSettings _sendinblueSettings;
 
         #endregion
 
         #region Ctor
 
-        public WidgetsSendinBlueViewComponent(ICustomerService customerService,
+        public WidgetsSendinblueViewComponent(ICustomerService customerService,
             IWorkContext workContext,
-            SendinBlueSettings sendinBlueSettings)
+            SendinblueSettings sendinblueSettings)
         {
             _customerService = customerService;
             _workContext = workContext;
-            _sendinBlueSettings = sendinBlueSettings;
+            _sendinblueSettings = sendinblueSettings;
         }
 
         #endregion
@@ -47,7 +47,7 @@ namespace Nop.Plugin.Misc.SendinBlue.Components
             var trackingScript = string.Empty;
 
             //ensure Marketing Automation is enabled
-            if (!_sendinBlueSettings.UseMarketingAutomation)
+            if (!_sendinblueSettings.UseMarketingAutomation)
                 return Content(trackingScript);
 
             //get customer email
@@ -56,11 +56,11 @@ namespace Nop.Plugin.Misc.SendinBlue.Components
                 : string.Empty;
 
             //prepare tracking script
-            trackingScript = $"{_sendinBlueSettings.TrackingScript}{Environment.NewLine}"
-                .Replace(SendinBlueDefaults.TrackingScriptId, _sendinBlueSettings.MarketingAutomationKey)
-                .Replace(SendinBlueDefaults.TrackingScriptCustomerEmail, customerEmail);
+            trackingScript = $"{_sendinblueSettings.TrackingScript}{Environment.NewLine}"
+                .Replace(SendinblueDefaults.TrackingScriptId, _sendinblueSettings.MarketingAutomationKey)
+                .Replace(SendinblueDefaults.TrackingScriptCustomerEmail, customerEmail);
 
-            return View("~/Plugins/Misc.SendinBlue/Views/PublicInfo.cshtml", trackingScript);
+            return View("~/Plugins/Misc.Sendinblue/Views/PublicInfo.cshtml", trackingScript);
         }
 
         #endregion

@@ -40,6 +40,7 @@ using Nop.Core.Infrastructure;
 using Nop.Core.Security;
 using Nop.Data;
 using Nop.Services.Blogs;
+using Nop.Services.Catalog;
 using Nop.Services.Common;
 using Nop.Services.Configuration;
 using Nop.Services.Customers;
@@ -398,7 +399,7 @@ namespace Nop.Services.Installation
             await InsertInstallationDataAsync(taxCategories);
         }
 
-        protected virtual async Task InstallLanguagesAsync(string languagePackDownloadLink, CultureInfo cultureInfo, RegionInfo regionInfo)
+        protected virtual async Task InstallLanguagesAsync((string languagePackDownloadLink, int languagePackProgress) languagePackInfo, CultureInfo cultureInfo, RegionInfo regionInfo)
         {
             var localizationService = EngineContext.Current.Resolve<ILocalizationService>();
 
@@ -439,7 +440,7 @@ namespace Nop.Services.Installation
             };
             await InsertInstallationDataAsync(language);
 
-            if (string.IsNullOrEmpty(languagePackDownloadLink))
+            if (string.IsNullOrEmpty(languagePackInfo.languagePackDownloadLink))
                 return;
 
             //download and import language pack
@@ -447,13 +448,24 @@ namespace Nop.Services.Installation
             {
                 var httpClientFactory = EngineContext.Current.Resolve<IHttpClientFactory>();
                 var httpClient = httpClientFactory.CreateClient(NopHttpDefaults.DefaultHttpClient);
-                await using var stream = await httpClient.GetStreamAsync(languagePackDownloadLink);
+                await using var stream = await httpClient.GetStreamAsync(languagePackInfo.languagePackDownloadLink);
                 using var streamReader = new StreamReader(stream);
                 await localizationService.ImportResourcesFromXmlAsync(language, streamReader);
 
                 //set this language as default
                 language.DisplayOrder = 0;
                 await UpdateInstallationDataAsync(language);
+
+                //save progress for showing in admin panel (only for first start)
+                await InsertInstallationDataAsync(new GenericAttribute
+                {
+                    EntityId = language.Id,
+                    Key = NopCommonDefaults.LanguagePackProgressAttribute,
+                    KeyGroup = nameof(Language),
+                    Value = languagePackInfo.languagePackProgress.ToString(),
+                    StoreId = 0,
+                    CreatedOrUpdatedDateUTC = DateTime.UtcNow
+                });
             }
             catch { }
         }
@@ -662,8 +674,9 @@ namespace Nop.Services.Installation
             var pattern = "*.txt";
 
             //we use different scope to prevent creating wrong settings in DI, because the settings data not exists yet
-            using var scope = EngineContext.Current.Resolve<IServiceProvider>().CreateScope();
-            var importManager = scope.ServiceProvider.GetRequiredService<IImportManager>();
+            var serviceScopeFactory = EngineContext.Current.Resolve<IServiceScopeFactory>();
+            using var scope = serviceScopeFactory.CreateScope();
+            var importManager = EngineContext.Current.Resolve<IImportManager>(scope);
             foreach (var filePath in _fileProvider.EnumerateFiles(directoryPath, pattern))
             {
                 await using var stream = new FileStream(filePath, FileMode.Open);
@@ -2947,7 +2960,8 @@ namespace Nop.Services.Installation
                 UseRichEditorForCustomerEmails = false,
                 UseRichEditorInMessageTemplates = false,
                 CheckCopyrightRemovalKey = true,
-                UseIsoDateFormatInJsonResult = true
+                UseIsoDateFormatInJsonResult = true,
+                ShowDocumentationReferenceLinks = true
             });
 
             await settingService.SaveSettingAsync(new ProductEditorSettings
@@ -3012,6 +3026,9 @@ namespace Nop.Services.Installation
                 SearchPageProductsPerPage = 6,
                 SearchPageAllowCustomersToSelectPageSize = true,
                 SearchPagePageSizeOptions = "6, 3, 9, 18",
+                SearchPagePriceRangeFiltering = true,
+                SearchPagePriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom,
+                SearchPagePriceTo = NopCatalogDefaults.DefaultPriceRangeTo,
                 ProductsAlsoPurchasedEnabled = true,
                 ProductsAlsoPurchasedNumber = 4,
                 AjaxProcessAttributeChange = true,
@@ -3029,6 +3046,9 @@ namespace Nop.Services.Installation
                 CacheProductPrices = false,
                 ProductsByTagAllowCustomersToSelectPageSize = true,
                 ProductsByTagPageSizeOptions = "6, 3, 9, 18",
+                ProductsByTagPriceRangeFiltering = true,
+                ProductsByTagPriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom,
+                ProductsByTagPriceTo = NopCatalogDefaults.DefaultPriceRangeTo,
                 MaximumBackInStockSubscriptions = 200,
                 ManufacturersBlockItemsToDisplay = 2,
                 DisplayTaxShippingInfoFooter = isGermany,
@@ -3051,7 +3071,11 @@ namespace Nop.Services.Installation
                 ExportImportSplitProductsFile = false,
                 ExportImportRelatedEntitiesByName = true,
                 CountDisplayedYearsDatePicker = 1,
-                UseAjaxLoadMenu = false
+                UseAjaxLoadMenu = false,
+                UseAjaxCatalogProductsLoading = true,
+                EnableManufacturerFiltering = true,
+                EnablePriceRangeFiltering = true,
+                AttributeValueOutOfStockDisplayType = AttributeValueOutOfStockDisplayType.AlwaysDisplay
             });
 
             await settingService.SaveSettingAsync(new LocalizationSettings
@@ -3302,7 +3326,8 @@ namespace Nop.Services.Installation
                 CompleteOrderWhenDelivered = true,
                 CustomOrderNumberMask = "{ID}",
                 ExportWithProducts = true,
-                AllowAdminsToBuyCallForPriceProducts = true
+                AllowAdminsToBuyCallForPriceProducts = true,
+                DisplayCustomerCurrencyOnOrders = false
             });
 
             await settingService.SaveSettingAsync(new SecuritySettings
@@ -3828,7 +3853,9 @@ namespace Nop.Services.Installation
                 PageSizeOptions = "6, 3, 9",
                 ParentCategoryId = categoryComputers.Id,
                 PictureId = (await pictureService.InsertPictureAsync(await _fileProvider.ReadAllBytesAsync(_fileProvider.Combine(sampleImagesPath, "category_desktops.jpg")), MimeTypes.ImagePJpeg, await pictureService.GetPictureSeNameAsync("Desktops"))).Id,
-                PriceRanges = "-1000;1000-1200;1200-;",
+                PriceRangeFiltering = true,
+                PriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom,
+                PriceTo = NopCatalogDefaults.DefaultPriceRangeTo,
                 IncludeInTopMenu = true,
                 Published = true,
                 DisplayOrder = 1,
@@ -3905,7 +3932,9 @@ namespace Nop.Services.Installation
                 PageSizeOptions = "6, 3, 9",
                 ParentCategoryId = categoryElectronics.Id,
                 PictureId = (await pictureService.InsertPictureAsync(await _fileProvider.ReadAllBytesAsync(_fileProvider.Combine(sampleImagesPath, "category_camera_photo.jpeg")), MimeTypes.ImageJpeg, await pictureService.GetPictureSeNameAsync("Camera, photo"))).Id,
-                PriceRanges = "-500;500-;",
+                PriceRangeFiltering = true,
+                PriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom,
+                PriceTo = NopCatalogDefaults.DefaultPriceRangeTo,
                 IncludeInTopMenu = true,
                 Published = true,
                 DisplayOrder = 1,
@@ -3945,7 +3974,9 @@ namespace Nop.Services.Installation
                 ParentCategoryId = categoryElectronics.Id,
                 PictureId = (await pictureService.InsertPictureAsync(await _fileProvider.ReadAllBytesAsync(_fileProvider.Combine(sampleImagesPath, "category_accessories.jpg")), MimeTypes.ImagePJpeg, await pictureService.GetPictureSeNameAsync("Accessories"))).Id,
                 IncludeInTopMenu = true,
-                PriceRanges = "-100;100-;",
+                PriceRangeFiltering = true,
+                PriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom,
+                PriceTo = NopCatalogDefaults.DefaultPriceRangeTo,
                 Published = true,
                 DisplayOrder = 3,
                 CreatedOnUtc = DateTime.UtcNow,
@@ -3983,7 +4014,9 @@ namespace Nop.Services.Installation
                 PageSizeOptions = "6, 3, 9",
                 ParentCategoryId = categoryApparel.Id,
                 PictureId = (await pictureService.InsertPictureAsync(await _fileProvider.ReadAllBytesAsync(_fileProvider.Combine(sampleImagesPath, "category_shoes.jpeg")), MimeTypes.ImageJpeg, await pictureService.GetPictureSeNameAsync("Shoes"))).Id,
-                PriceRanges = "-500;500-;",
+                PriceRangeFiltering = true,
+                PriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom,
+                PriceTo = NopCatalogDefaults.DefaultPriceRangeTo,
                 IncludeInTopMenu = true,
                 Published = true,
                 DisplayOrder = 1,
@@ -4023,7 +4056,9 @@ namespace Nop.Services.Installation
                 ParentCategoryId = categoryApparel.Id,
                 PictureId = (await pictureService.InsertPictureAsync(await _fileProvider.ReadAllBytesAsync(_fileProvider.Combine(sampleImagesPath, "category_apparel_accessories.jpg")), MimeTypes.ImagePJpeg, await pictureService.GetPictureSeNameAsync("Apparel Accessories"))).Id,
                 IncludeInTopMenu = true,
-                PriceRanges = "-100;100-;",
+                PriceRangeFiltering = true,
+                PriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom,
+                PriceTo = NopCatalogDefaults.DefaultPriceRangeTo,
                 Published = true,
                 DisplayOrder = 3,
                 CreatedOnUtc = DateTime.UtcNow,
@@ -4062,7 +4097,9 @@ namespace Nop.Services.Installation
                 AllowCustomersToSelectPageSize = true,
                 PageSizeOptions = "6, 3, 9",
                 PictureId = (await pictureService.InsertPictureAsync(await _fileProvider.ReadAllBytesAsync(_fileProvider.Combine(sampleImagesPath, "category_book.jpeg")), MimeTypes.ImageJpeg, await pictureService.GetPictureSeNameAsync("Book"))).Id,
-                PriceRanges = "-25;25-50;50-;",
+                PriceRangeFiltering = true,
+                PriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom,
+                PriceTo = NopCatalogDefaults.DefaultPriceRangeTo,
                 IncludeInTopMenu = true,
                 Published = true,
                 DisplayOrder = 5,
@@ -4081,7 +4118,9 @@ namespace Nop.Services.Installation
                 AllowCustomersToSelectPageSize = true,
                 PageSizeOptions = "6, 3, 9",
                 PictureId = (await pictureService.InsertPictureAsync(await _fileProvider.ReadAllBytesAsync(_fileProvider.Combine(sampleImagesPath, "category_jewelry.jpeg")), MimeTypes.ImageJpeg, await pictureService.GetPictureSeNameAsync("Jewelry"))).Id,
-                PriceRanges = "0-500;500-700;700-3000;",
+                PriceRangeFiltering = true,
+                PriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom,
+                PriceTo = NopCatalogDefaults.DefaultPriceRangeTo,
                 IncludeInTopMenu = true,
                 Published = true,
                 DisplayOrder = 6,
@@ -4140,6 +4179,9 @@ namespace Nop.Services.Installation
                 PageSize = 6,
                 AllowCustomersToSelectPageSize = true,
                 PageSizeOptions = "6, 3, 9",
+                PriceRangeFiltering = true,
+                PriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom,
+                PriceTo = NopCatalogDefaults.DefaultPriceRangeTo,
                 Published = true,
                 PictureId = (await pictureService.InsertPictureAsync(await _fileProvider.ReadAllBytesAsync(_fileProvider.Combine(sampleImagesPath, "manufacturer_apple.jpg")), MimeTypes.ImagePJpeg, await pictureService.GetPictureSeNameAsync("Apple"))).Id,
                 DisplayOrder = 1,
@@ -4158,6 +4200,9 @@ namespace Nop.Services.Installation
                 PageSize = 6,
                 AllowCustomersToSelectPageSize = true,
                 PageSizeOptions = "6, 3, 9",
+                PriceRangeFiltering = true,
+                PriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom,
+                PriceTo = NopCatalogDefaults.DefaultPriceRangeTo,
                 Published = true,
                 PictureId = (await pictureService.InsertPictureAsync(await _fileProvider.ReadAllBytesAsync(_fileProvider.Combine(sampleImagesPath, "manufacturer_hp.jpg")), MimeTypes.ImagePJpeg, await pictureService.GetPictureSeNameAsync("Hp"))).Id,
                 DisplayOrder = 5,
@@ -9239,7 +9284,10 @@ namespace Nop.Services.Installation
                     DisplayOrder = 1,
                     PageSize = 6,
                     AllowCustomersToSelectPageSize = true,
-                    PageSizeOptions = "6, 3, 9, 18"
+                    PageSizeOptions = "6, 3, 9, 18",
+                    PriceRangeFiltering = true,
+                    PriceFrom = NopCatalogDefaults.DefaultPriceRangeFrom,
+                    PriceTo = NopCatalogDefaults.DefaultPriceRangeTo,
                 },
                 new Vendor
                 {
@@ -9334,16 +9382,16 @@ namespace Nop.Services.Installation
         /// </summary>
         /// <param name="defaultUserEmail">Default user email</param>
         /// <param name="defaultUserPassword">Default user password</param>
-        /// <param name="languagePackDownloadLink">Language pack download link</param>
+        /// <param name="languagePackInfo">Language pack info</param>
         /// <param name="regionInfo">RegionInfo</param>
         /// <param name="cultureInfo">CultureInfo</param>
         public virtual async Task InstallRequiredDataAsync(string defaultUserEmail, string defaultUserPassword,
-            string languagePackDownloadLink, RegionInfo regionInfo, CultureInfo cultureInfo)
+            (string languagePackDownloadLink, int languagePackProgress) languagePackInfo, RegionInfo regionInfo, CultureInfo cultureInfo)
         {
             await InstallStoresAsync();
             await InstallMeasuresAsync(regionInfo);
             await InstallTaxCategoriesAsync();
-            await InstallLanguagesAsync(languagePackDownloadLink, cultureInfo, regionInfo);
+            await InstallLanguagesAsync(languagePackInfo, cultureInfo, regionInfo);
             await InstallCurrenciesAsync(cultureInfo, regionInfo);
             await InstallCountriesAndStatesAsync();
             await InstallShippingMethodsAsync();
